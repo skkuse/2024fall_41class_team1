@@ -1,0 +1,106 @@
+# run_failover_and_recovery
+# 공용  setup/teardown 함수
+function setup_failover_test_environment():
+    set_test_host("https://webshooter.app")
+    prepare_test_accounts()
+
+function teardown_failover_test_environment():
+    close_all_connections()
+    generate_failover_test_report()
+
+
+#-------------------------------------------------
+# 서버 장애 복구 테스트
+#-------------------------------------------------
+
+function test_alerting_system():
+    # Tools: AWS SNS, Email Notification Tools
+    # 서버 다운타임 시 관리자에게 알림 전송 확인
+
+    simulate_server_downtime("webshooter-app-instance-2")
+    # SNS 토픽으로 알림 발송 가정
+    verify_email_received("admin@example.com", subject_contains="서버 다운") 
+
+    # 알림 메시지 내용 확인: 복구 예상 시간, 상태 정보
+    verify_email_body_contains("admin@example.com", "복구 예상 시간")
+
+    # Verification: 장애 발생 시 알림 전송 및 상태 정보 포함
+
+function test_emergency_recovery_procedure():
+    # Tools: Manual Testing, Incident Response Docs
+    # 문서화된 복구 절차에 따라 DB 및 서버 복구
+    
+    # Manual step: 문서에 따른 복구 스크립트 실행 (개념적)
+    run_recovery_script("db_restore.sh")
+    run_recovery_script("server_redeploy.sh")
+
+    # 로그 기록 확인
+    verify_logs_for("recovery completed")
+
+    # 복구 후 서비스 접근
+    response = make_http_request("https://webshooter.app")
+    verify(response.status_code == 200)
+
+    # Verification: 문서화된 절차 대로 복구 가능, 서비스 정상화
+
+
+#-------------------------------------------------
+# 데이터 무결성 테스트
+#-------------------------------------------------
+
+function test_data_loss_prevention():
+    # Tools: AWS RDS Snapshot, SQLAlchemy
+    # 장애 상황에서 DB 백업 복원
+
+    simulate_db_failure()
+    restore_db_from_snapshot("webshooter_snapshot")
+    db_result = db_query("SELECT * FROM user_learning_records WHERE user_id='testuser'")
+    verify(db_result.count > 0)
+
+    # Verification: 데이터 손실 없음, 장애 전 기록 복원
+
+
+#-------------------------------------------------
+# 중단 없는 사용자 경험 테스트
+#-------------------------------------------------
+
+function test_data_integrity_after_failure():
+    # Tools: Selenium, Manual Testing
+    # 문제 생성/학습 기록 저장 중 장애 발생 후 데이터 확인
+
+    open_browser("Chrome")
+    login("testuser@example.com", "ValidPass123!")
+    input_text("#new_problem_title", "Test Problem")
+    click_element("#save_problem_button")
+
+    # 문제 생성 도중 장애 발생
+    simulate_server_downtime("webshooter-app-instance-4")
+    wait(5s) # 장애 발생 시간
+    simulate_server_recovery("webshooter-app-instance-4")
+
+    # 복구 후 페이지 재접속
+    refresh_page()
+    verify_element_text_contains(".problem_item", "Test Problem")
+
+    close_browser()
+    # Verification: 장애 발생 전 저장 요청 데이터 복구 후 반영
+
+
+#-------------------------------------------------
+# Main Failover & Recovery test function
+#-------------------------------------------------
+
+function run_failover_and_recovery_tests():
+    setup_failover_test_environment()
+
+    # 서버 장애 복구
+    test_alerting_system()
+    test_emergency_recovery_procedure()
+
+    # 데이터 무결성
+    test_data_loss_prevention()
+
+    # 중단 없는 사용자 경험
+    test_data_integrity_after_failure()
+
+    teardown_failover_test_environment()

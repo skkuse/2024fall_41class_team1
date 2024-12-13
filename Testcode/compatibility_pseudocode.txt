@@ -1,0 +1,143 @@
+# Compatibility
+# 공용  setup/teardown 함수
+function setup_compatibility_environment():
+    set_test_host("https://webshooter.app")
+    prepare_test_accounts()
+
+function teardown_compatibility_environment():
+    # 리소스 정리
+    close_all_connections()
+
+#-------------------------------------------------
+# 브라우저 호환성 테스트
+#-------------------------------------------------
+
+function test_browser_compatibility():
+    # 1. Edge, Firefox 기능 검증
+    # Tools: BrowserStack, Selenium WebDriver, Lighthouse
+    # BrowserStack 상에서 Edge, Firefox 환경 생성 가정
+
+    browsers = ["Edge", "Firefox"]
+    for browser in browsers:
+        browserstack_session = start_browserstack_session(browser)
+        navigate_to_url("https://webshooter.app")
+        # 로그인 기능 테스트
+        input_text("#login_email_field", "testuser@example.com")
+        input_text("#login_password_field", "ValidPass123!")
+        click_element("#login_submit_button")
+        wait_until_element_visible("#dashboard", timeout=5s)
+        verify_element_visible("#dashboard")
+
+        # 문제 생성 등 주요 기능 검증
+        click_element("#problems_tab")
+        wait_until_element_visible("#problems_list", timeout=5s)
+        verify_element_visible(".problem_item")
+
+        # 종료
+        close_browserstack_session(browserstack_session)
+
+    # Lighthouse를 통한 Chrome 렌더링 검사 (개념적)
+    lighthouse_result = run_lighthouse("https://webshooter.app")
+    verify_no_rendering_issues(lighthouse_result)
+
+    # Validation Points:
+    # 모든 브라우저에서 동일한 UI
+
+function test_api_and_error_messages():
+    # Tools: Postman, Selenium
+    # Postman으로 브라우저별 API 요청 테스트
+    response_edge = postman_call("GET", "/api/problems?browser=edge")
+    response_firefox = postman_call("GET", "/api/problems?browser=firefox")
+
+    verify(response_edge.status_code == 200)
+    verify(response_firefox.status_code == 200)
+    verify(response_edge.body == response_firefox.body) # 브라우저별 응답 동일성 확인
+
+    # Selenium으로 네트워크 요청 실패 상황 시뮬레이션
+    simulate_network_failure()
+    click_element("#refresh_problems_button")
+    wait_until_element_visible("#error_message", timeout=5s)
+    verify_element_text_contains("#error_message", "네트워크 오류 발생")
+
+    # Validation Points:
+    # API 요청 결과 브라우저 간 동일, 네트워크 실패 시 사용자 오류 메시지
+
+function test_javascript_disabled():
+    # Tools: Browser DevTools, Selenium
+    # JavaScript 비활성화: 개발자 도구 사용(개념)
+    disable_javascript_via_devtools()
+
+    navigate_to_url("https://webshooter.app")
+    # Selenium으로 JS 비활성 상태에서 페이지 로드 검증
+    wait_until_element_visible("#js_disabled_message", timeout=5s)
+    verify_element_text_contains("#js_disabled_message", "JavaScript 비활성화로 기능 제한")
+
+    # Validation Points:
+    # JS 비활성 시 경고 메시지, 제한된 기능 안내 정확히 표시
+
+#-------------------------------------------------
+# 디바이스 호환성 
+#-------------------------------------------------
+
+function test_min_spec_devices():
+    # Tools: Real Device Testing, BrowserStack
+    # BrowserStack: 저사양 환경(1.0GHz, 2GB RAM) 시뮬레이션
+    low_spec_session = start_browserstack_session("Chrome", cpu="1GHz", ram="2GB")
+    navigate_to_url("https://webshooter.app")
+    verify_page_responsiveness(low_spec_session)
+
+    # 실제 저사양 기기에서 테스트 (Manual)
+    # manual_check_on_real_device()
+
+    # Validation: 저사양에서도 기능 정상 동작
+
+function test_high_resolution_display():
+    # Tools: Figma Mirror, BrowserStack
+    high_res_session = start_browserstack_session("Chrome", resolution="4K")
+    navigate_to_url("https://webshooter.app")
+
+    # manual_compare_with_figma()
+
+    # Verify no scaling issues
+    verify_no_scaling_issues(high_res_session)
+
+    # Validation: 고해상도에서 UI 정확히 표시
+
+function test_responsive_design():
+    # Tools: Chrome DevTools, Selenium Grid
+    # Chrome DevTools를 통한 화면 비율 변경 (16:9, 4:3, 3:2)
+    aspect_ratios = ["16:9", "4:3", "3:2"]
+    for ratio in aspect_ratios:
+        set_viewport_ratio(ratio)
+        navigate_to_url("https://webshooter.app")
+        verify_layout_integrity()
+
+    # Selenium Grid를 통한 다양한 디바이스 해상도 테스트
+    resolutions = ["1920x1080", "1280x720", "1024x768"]
+    for res in resolutions:
+        grid_session = start_selenium_grid_session(resolution=res)
+        navigate_to_url("https://webshooter.app")
+        verify_no_ui_breaks(grid_session)
+        end_selenium_grid_session(grid_session)
+
+    # Validation: 모든 해상도/비율에서 UI 깨짐 없음, 반응형 레이아웃 정상 적용
+
+
+#-------------------------------------------------
+# Main Compatibility Test function
+#-------------------------------------------------
+
+function run_compatibility_tests():
+    setup_compatibility_environment()
+
+    # 브라우저 호환성
+    test_browser_compatibility()
+    test_api_and_error_messages()
+    test_javascript_disabled()
+
+    # 디바이스 호환성
+    test_min_spec_devices()
+    test_high_resolution_display()
+    test_responsive_design()
+
+    teardown_compatibility_environment()

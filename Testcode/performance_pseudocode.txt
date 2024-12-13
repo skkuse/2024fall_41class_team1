@@ -1,0 +1,156 @@
+# Performance
+# 공용  setup/teardown 함수
+function setup_performance_environment():
+    # 필요한 설정: 서버 호스트 정보, 테스트 계정, 기본 전처리
+    set_test_host("https://webshooter.app")
+    prepare_test_accounts()
+
+function teardown_performance_environment():
+    # 성능 테스트 종료 후 리소스 정리
+    close_all_connections()
+    generate_performance_report()
+
+#-------------------------------------------------
+# 동시 사용자 테스트
+#-------------------------------------------------
+function test_concurrent_users():
+    # Tools: JMeter(부하), Locust(부하), AWS CloudWatch(모니터링)
+    
+    # Automated Test (JMeter 사용)
+    jmeter_result = run_jmeter_test("jmeter_scripts/200_users_test.jmx")
+    verify_response_time(jmeter_result, <=2s)
+    verify_no_bottleneck(jmeter_result)
+
+    # Locust로 사용자 요청(챗봇 질문, 문제 생성) 시뮬레이션
+    locust_result = run_locust_test("locust_scripts/50_users_scenario.py")
+    verify_response_time(locust_result, <=2s)
+    verify_no_bottleneck(locust_result)
+
+    # Verification Points:
+    # 응답 시간 2초 이내, 병목 현상 없음
+
+
+#-------------------------------------------------
+# 호스트 서버-클라이언트 통신 테스트
+#-------------------------------------------------
+function test_host_client_communication():
+    # Tools: Wireshark, Browser DevTools
+    
+    # Automated:
+    # Selenium으로 요청 전송
+    click_element("#request_data_button")
+    wait_until_element_visible("#response_data", 5s)
+    verify_data_integrity("#response_data")
+
+    # WebSocket 종료 시나리오
+    simulate_websocket_close()
+    verify_no_data_loss()
+
+    # Manual:
+    # DevTools Network 탭 확인, Wireshark로 패킷 분석
+    # Verification: 전송 속도 10Mbps 이상, 소켓 종료 시 데이터 손실 없음
+
+#-------------------------------------------------
+# 모니터링과 서버 성능 확인
+#-------------------------------------------------
+function test_monitoring_server_performance():
+    # Tools: AWS CloudWatch, Grafana, Selenium
+    
+    # Automated:
+    refresh_page()
+    verify_ui_sync(<=100ms delay) # UI에서 데이터 갱신 확인
+
+    # Manual:
+    # Grafana 대시보드에서 서버 부하, 동기화 상태 검토
+    # Verification: 동기화 지연 100ms, 갱신 주기 1초 이내
+
+#-------------------------------------------------
+# 페이지 로딩 시간
+#-------------------------------------------------
+function test_page_load_time():
+    # Tools: Lighthouse, Selenium
+
+    # Automated:
+    lighthouse_result = run_lighthouse("https://webshooter.app")
+    verify_page_load(lighthouse_result, <=3s)
+
+    # Manual:
+    # 다양한 브라우저, 디바이스, 느린 네트워크 환경에서 확인
+    # Verification: 3초 이내 로딩 완료
+
+#-------------------------------------------------
+# 데이터 저장 및 로드 시간
+#-------------------------------------------------
+function test_data_save_load_time():
+    # Tools: Selenium, SQLAlchemy
+
+    # Automated:
+    save_start = start_timer()
+    click_element("#save_data_button")
+    wait_until_element_visible("#save_complete_msg", timeout=5s)
+    save_elapsed = stop_timer()
+    verify(save_elapsed <= 5s)
+
+    # Manual:
+    # UI에서 데이터 로드 확인, DB에서 정확성 검토
+    # Verification: 저장/로드 5초 이내
+
+#-------------------------------------------------
+# 실시간 코드 실행 응답성
+#-------------------------------------------------
+function test_live_code_execution_response():
+    # Tools: Selenium, Browser DevTools
+
+    # Automated:
+    input_text("#code_editor", "console.log('test')")
+    click_element("#run_code_button")
+    start_timer()
+    wait_until_element_visible("#live_preview_output", 5s)
+    exec_time = stop_timer()
+    verify(exec_time <= 5s)
+
+    # Manual:
+    # 핫 리로딩 시각적 확인
+    # Verification: 5초 이내 결과 반영
+
+#-------------------------------------------------
+# 시스템 관리자 페이지 성능
+#-------------------------------------------------
+function test_admin_page_performance():
+    # Tools: Selenium, pgAdmin(DB Query)
+
+    # Automated:
+    start_timer()
+    click_element("#admin_users_tab")
+    wait_until_element_visible("#user_list", 5s)
+    elapsed = stop_timer()
+    verify(elapsed <= 5s)
+
+    # 사용자 삭제/수정 작업 시간 측정
+    start_timer()
+    click_element(".delete_user_button[data-user='testuser']")
+    wait_until_element_not_present(".user_item[data-user='testuser']", 5s)
+    elapsed_delete = stop_timer()
+    verify(elapsed_delete <= 5s)
+
+    # DB 확인
+    db_check = db_query("SELECT * FROM users WHERE username='testuser'")
+    verify(db_check.count == 0)
+
+    # Verification: 모든 작업 5초 이내 처리
+
+#-------------------------------------------------
+# Main Performance Test function
+#-------------------------------------------------
+function run_performance_tests():
+    setup_performance_environment()
+
+    test_concurrent_users()
+    test_host_client_communication()
+    test_monitoring_server_performance()
+    test_page_load_time()
+    test_data_save_load_time()
+    test_live_code_execution_response()
+    test_admin_page_performance()
+
+    teardown_performance_environment()

@@ -1,0 +1,51 @@
+# Interaction
+# 공용  setup/teardown 함수
+function setup_interaction_test_environment():
+    set_test_host("https://webshooter.app")
+    prepare_test_accounts()
+
+function teardown_interaction_test_environment():
+    close_all_connections()
+    generate_interaction_test_report()
+
+#-------------------------------------------------
+# 드래그 정확도 테스트
+# Tools: Manual Testing
+#-------------------------------------------------
+function test_drag_accuracy():
+    open_browser("Chrome")
+    navigate_to_url("https://webshooter.app/dragdrop_test")
+
+    # Manual Test:
+    # 1. 지정된 영역 내 드래그 시도
+    # 2. 화면 경계 바깥으로 드래그 시도
+    # 3. 여러 번 드래그 실행 후 위치 오차 측정 (10회 평균 오차)
+
+    # Pseudocode 개념:
+    element_to_drag = find_element("#draggable_item")
+    valid_target = find_element("#valid_drop_area")
+    invalid_target = find_element("#outside_area")
+
+    for i in 1 to 10:
+        drag_and_drop(element_to_drag, valid_target)
+        distance_error = measure_drop_position_error(element_to_drag)
+        verify(distance_error <= 5px)
+
+    # 비정상 값(화면 바깥)
+    drag_and_drop(element_to_drag, invalid_target)
+    verify_element_text_contains("#error_message", "드래그 범위 벗어남")
+
+    close_browser()
+
+    # Validation: 드래그 앤 드롭 동작 정확도 5px 이내
+
+
+#-------------------------------------------------
+# Main Interaction test function
+#-------------------------------------------------
+function run_interaction_tests():
+    setup_interaction_test_environment()
+
+    test_drag_accuracy()
+
+    teardown_interaction_test_environment()

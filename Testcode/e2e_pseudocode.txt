@@ -1,0 +1,362 @@
+# END-to-END(Overall)
+# 공용 Setup & Teardown 함수
+function setup_environment():
+    # Selenium: 브라우저 자동화
+    open_browser("Chrome")
+    navigate_to_url("https://webshooter.app")
+    set_implicit_wait(5s)
+
+function teardown_environment():
+    # 브라우저 종료
+    close_browser()
+
+#-------------------------------------------------
+# Authentication Page Tests (회원가입, 로그인, 비밀번호 재설정)
+# Tool: Selenium(UI), Postman(API), Chrome DevTools(Network)
+#-------------------------------------------------
+
+function test_signup():
+    # Selenium을 활용한 UI 자동화
+    click_element("#signup_button")
+    wait_until_element_visible("#signup_email_field", timeout=5s)
+
+    # Partition Testing : ex) 비밀번호 길이와 이메일 형식
+    input_text("#signup_id_field", "moonsu99")
+    input_text("#signup_email_field", "moonsu99@example.com")  # 정상 이메일
+    input_text("#signup_password_field", "Moonsu123!")          # 정상 비밀번호
+    input_text("#signup_password_confirm_field", "Moonsu123!")
+
+    select_checkbox("#interest_fullstack")
+    select_checkbox("#interest_frontend")
+    select_checkbox("#language_java")
+    select_checkbox("#language_js")
+    select_checkbox("#language_python")
+
+    click_element("#final_signup_button")
+    wait_until_element_visible("#login_email_field", timeout=5s)
+    verify_current_url_contains("/login")
+
+    # Postman으로 비정상 입력값 테스트 (이메일 형식 오류)
+    api_response = postman_call("POST", "/api/signup", {"email":"user@com","password":"InvalidPass123"})
+    verify(api_response.status_code == 400)
+    verify("유효한 이메일" in api_response.body)
+
+    # Chrome DevTools로 세션 쿠키/스토리지 확인
+    open_chrome_devtools()
+    check_network_logs_for_cookie("session_id")
+    verify_cookie_value("session_id", not_empty=True)
+
+    # Manual Test: 세션 유지, 동시 로그인 확인
+    # Verification Point: 회원가입 처리시간 5초 이내
+
+
+function test_password_reset():
+    # Selenium UI 비밀번호 재설정 접근
+    click_element("#login_button") 
+    click_element("#find_password_button") 
+    input_text("#find_password_email_field", "moonsu99@example.com")
+    click_element("#auth_request_button")
+
+    # Postman으로 비밀번호 재설정 요청 API 확인
+    email_send_res = postman_call("POST", "/api/reset_password", {"email":"moonsu99@example.com"})
+    verify(email_send_res.status_code == 200)
+    verify(mock_email_server_check("moonsu99@example.com"))
+
+    mock_received_code = "123456"
+    input_text("#auth_code_input_field", mock_received_code)
+    click_element("#auth_code_confirm_button")
+
+    wait_until_element_visible("#new_password_field", timeout=5s)
+    input_text("#new_password_field", "NewMoonsu123!")
+    input_text("#new_password_confirm_field", "NewMoonsu123!")
+    click_element("#update_password_button")
+    wait_until_element_visible("#login_email_field", timeout=5s)
+
+    # Verification Point: 비번 재설정 이메일 및 링크 작동 확인
+
+
+function test_login():
+    click_element("#login_button") 
+    input_text("#login_email_field", "moonsu99@example.com")
+    input_text("#login_password_field", "NewMoonsu123!")
+    click_element("#login_submit_button")
+    wait_until_element_visible("#user_avatar", timeout=5s)
+    verify_element_text_contains("#user_id_display", "moonsu99")
+    # Verification Point: 로그인 처리시간 5초 이내
+
+
+#-------------------------------------------------
+# Prompt Engineering Workflow Tests (문제 생성)
+# Tool: Python+pytest(검증 스크립트), Postman(API), Manual(UI 검토)
+#-------------------------------------------------
+
+function test_prompt_engineering():
+    start_timer()
+    # Postman으로 프롬프트 기반 문제 생성 요청
+    prompt_res = postman_call("POST", "/api/generate_problem_prompt", {"prompt":"Create a Level-3 Frontend problem with tests and example solution"})
+    verify(prompt_res.status_code == 200)
+    verify("input" in prompt_res.body and "output" in prompt_res.body)
+
+    # 서버 측 신뢰성 평가 API 호출 (LLM이 생성한 문제를 서버에서 테스트)
+    evaluate_res = postman_call("POST", "/api/evaluate_problem", {"problem_data": prompt_res.body})
+    if evaluate_res.status_code != 200 or "fail" in evaluate_res.body:
+        # 실패 시 대체 프롬프트 시도
+        alt_res = postman_call("POST", "/api/generate_problem_prompt", {"prompt":"Alternative Level-3 Frontend problem"})
+        verify(alt_res.status_code == 200)
+        verify("input" in alt_res.body and "output" in alt_res.body)
+
+        # 대체 프롬프트도 평가
+        evaluate_alt_res = postman_call("POST", "/api/evaluate_problem", {"problem_data": alt_res.body})
+        verify(evaluate_alt_res.status_code == 200)
+        verify("success" in evaluate_alt_res.body)
+
+    else:
+        verify("success" in evaluate_res.body)
+
+    elapsed = stop_timer()
+    verify(elapsed <= 60s) # 1분 이내 평가 완료 검증
+
+    # Python + pytest로 구조 검증
+    run_pytest_script("test_prompt_structure.py")
+
+    # Manual Test: UI 상 생성된 문제 검토
+    # Verification Point: 문제 생성 및 평가 1분 이내, 실패 시 대체 프롬프트 처리 성공
+
+
+#-------------------------------------------------
+# 대시보드 및 프로필 업데이트, 문제 리스트 검증
+# Tool: Selenium(UI), SQLAlchemy(pgAdmin) DB Query
+#-------------------------------------------------
+
+function test_dashboard_access_and_profile():
+    # 대시보드 접근
+    hover_element("#user_id_display")
+    verify_element_visible("#dashboard_button")
+    click_element("#dashboard_button")
+    wait_until_element_visible("#stats_graph", timeout=5s)
+    verify_element_text_contains("#user_email_display", "moonsu99@example.com")
+
+    # 프로필 사진 업로드
+    click_element("#camera_icon")
+    upload_file("#profile_upload_input", "path/to/test_image.jpg")
+    click_element("#upload_confirm_button")
+    verify_image_changed("#profile_picture")
+
+    # 문제 탭 이동 후 문제 리스트 UI 확인
+    click_element("#problems_tab")
+    wait_until_element_visible("#problems_list", timeout=5s)
+
+    # prompt_engineering 과정을 통해 문제 생성되었다 가정 (DB 반영 확인)
+    # DB Query로 문제 확인
+    db_result = db_query("SELECT * FROM problems WHERE difficulty='Level-3' AND topic='Frontend'")
+    verify(db_result.count > 0)
+
+    # Verification Point: 2분 이내 문제 생성(앞서 test_prompt_engineering 내 1분+추가 margin), DB일치성 검증
+
+#-------------------------------------------------
+# 전체 실습문제 페이지에서 필터링 및 UI 검증
+#-------------------------------------------------
+
+function test_problem_filtering():
+    navigate_to_url("https://webshooter.app")
+    click_element("#전체실습문제_button")
+    wait_until_element_visible("#problem_filter_area", timeout=5s)
+    
+    # 기술유형 및 난이도 선택 (Prompt로 생성된 Level-3 Frontend 문제 확인)
+    click_element("#기술유형_select")
+    click_element("//li[text()='Frontend']")
+    click_element("#난이도_select")
+    click_element("//li[text()='Level3']")
+
+    verify_problem_list_filtered("Frontend", "Level3")
+
+#-------------------------------------------------
+# Code Editor 및 Live Preview Tests
+# Tool: Cypress(UI), Network Sniffer(실시간)
+#-------------------------------------------------
+
+function test_code_editor_live_preview():
+    cypress_run("test_editor_response_time.spec.js")
+
+    input_text("#code_editor", "%%%") 
+    click_element("#run_code_button")
+    wait_until_element_visible("#error_message", timeout=5s)
+    verify_element_text_contains("#error_message", "유효하지 않은 코드")
+
+    # Manual Test: 실시간 미리보기 확인
+    # Verification Point: 비정상 입력 처리
+
+#-------------------------------------------------
+# AI Chatbot Tests
+# Tool: Browser DevTools(LocalStorage), Cypress
+#-------------------------------------------------
+function test_ai_chatbot():
+    cypress_run("test_chatbot_autosave.spec.js")
+
+    # Manual Test: 핫 리로딩/하이라이팅 확인
+    # Verification Point: 자동 저장 코드 복원
+
+#-------------------------------------------------
+# Grading Panel Tests
+# Tool: Selenium(UI), pytest(결과 검증)
+#-------------------------------------------------
+function test_grading_panel():
+    input_text("#code_submission", "function sum(a,b){return a+b;}")
+    click_element("#submit_code_button")
+    start_timer()
+    wait_until_element_visible("#feedback_panel", timeout=5s)
+    elapsed = stop_timer()
+    verify(elapsed <= 5s)
+    verify_element_text_contains("#feedback_panel", "테스트 통과")
+
+    run_pytest_script("test_grading_feedback.py")
+
+    # Verification Point: 채점/피드백 5초 이내
+
+#-------------------------------------------------
+# Dashboard Update Tests
+# Tool: Selenium(UI), SQLAlchemy(DB)
+#-------------------------------------------------
+function test_dashboard_update():
+    navigate_to_url("https://webshooter.app/dashboard")
+    old_count = get_element_text("#completed_problems_count")
+
+    # 새로운 문제를 prompt로 추가 생성 (다른 난이도/주제)
+    start_timer()
+    alt_prompt_res = postman_call("POST", "/api/generate_problem_prompt", {"prompt":"Create a Level-2 Frontend problem"})
+    verify(alt_prompt_res.status_code == 200)
+
+    # 평가
+    alt_eval = postman_call("POST", "/api/evaluate_problem", {"problem_data": alt_prompt_res.body})
+    if alt_eval.status_code != 200 or "fail" in alt_eval.body:
+        # 대체 프롬프트
+        alt_res2 = postman_call("POST", "/api/generate_problem_prompt", {"prompt":"Alternative Level-2 Frontend problem"})
+        verify(alt_res2.status_code == 200)
+        alt_eval2 = postman_call("POST", "/api/evaluate_problem", {"problem_data": alt_res2.body})
+        verify(alt_eval2.status_code == 200)
+        verify("success" in alt_eval2.body)
+    else:
+        verify("success" in alt_eval.body)
+
+    elapsed = stop_timer()
+    verify(elapsed <= 60s)
+
+    # 대시보드 갱신 확인
+    wait(120s) # 문제 반영 대기
+    refresh_page()
+    new_count = get_element_text("#completed_problems_count")
+    verify(int(new_count) > int(old_count))
+
+    # DB 비교
+    db_result_count = db_query("SELECT COUNT(*) FROM completed_problems WHERE user_id='moonsu99'")
+    verify(int(new_count) == db_result_count)
+
+    # Verification Point: 데이터 업데이트 5초 이내(새로고침 후), DB 일치성
+
+#-------------------------------------------------
+# 문제 풀이 및 제출, 공유, 댓글, 피드백 테스트
+# 기존 prompt로 생성된 문제에 대해 코드 제출/공유/댓글/피드백 과정을 test_problem_solving_and_sharing()에서 실행
+#-------------------------------------------------
+
+function test_problem_solving_and_sharing():
+    # 문제 페이지 접근 (이미 prompt로 생성)
+    navigate_to_url("https://webshooter.app/problems")
+    click_element(".problem_item[data-level='Level3'][data-topic='Frontend']")
+    wait_until_element_visible("#problem_description_section", timeout=120s)
+    verify_element_visible("#code_editor")
+    verify_element_visible("#live_preview")
+
+    # 제출 후 공유, 댓글, 피드백 시나리오
+    input_text("#code_editor", "/* 문제 요구사항에 맞는 코드 작성 */")
+    click_element("#submit_solution_button")
+    wait_until_element_visible("#feedback_panel", timeout=5s)
+    verify_element_text_contains("#feedback_panel", "유사도")
+
+    # 유사도 95% 이상 가정 → 공유하기 버튼
+    click_element("#share_solution_button")
+    wait_until_element_visible("#share_popup", timeout=5s)
+    verify_element_text_contains("#share_popup_message", "공유하시겠습니까?")
+    click_element("#share_confirm_button")
+    wait_until_element_visible("#board_section", timeout=5s)
+    verify_element_text_contains("#board_submission_info", "moonsu99")
+
+    # 댓글
+    input_text("#comment_input", "잘 풀었네요!")
+    click_element("#comment_submit_button")
+    verify_element_text_contains("#comments_list", "잘 풀었네요!")
+
+    # 라인 피드백
+    click_element(".line_number[data-line='10']")
+    input_text("#line_feedback_input", "이 부분 로직 최적화 가능")
+    click_element("#line_feedback_submit")
+    verify_element_text_contains("#line_feedback_panel", "이 부분 로직 최적화 가능")
+
+
+#-------------------------------------------------
+# 관리자(Admin) 기능 테스트
+#-------------------------------------------------
+function test_admin_functions():
+    hover_element("#user_id_display")
+    click_element("#logout_button")
+    wait_until_element_visible("#login_email_field", timeout=5s)
+
+    input_text("#login_email_field", "admin@example.com")
+    input_text("#login_password_field", "AdminPass123!")
+    click_element("#login_submit_button")
+    wait_until_element_visible("#admin_dashboard", timeout=5s)
+
+    navigate_to_url("https://webshooter.app/admin/users")
+    wait_until_element_visible("#user_list", timeout=5s)
+
+    verify_element_text_contains(".user_item[data-user='moonsu99']", "moonsu99@example.com")
+    verify_element_text_contains(".user_item[data-user='moonsu99']", "생성 문제 수")
+    verify_element_text_contains(".user_item[data-user='moonsu99']", "생성 댓글 수")
+
+    click_element(".user_item[data-user='moonsu99']")
+    wait_until_element_visible("#user_profile", timeout=5s)
+    verify_element_text_contains("#user_profile", "moonsu99@example.com")
+
+    wait_until_element_visible(".comment_item:contains('잘 풀었네요!')", timeout=5s)
+    click_element(".delete_comment_button[data-comment='잘 풀었네요!']")
+    verify_element_not_present(".comment_item:contains('잘 풀었네요!')")
+
+
+#-------------------------------------------------
+# Main E2E test function
+#-------------------------------------------------
+function run_end_to_end_tests():
+    setup_environment()
+
+    # Authentication Page 관련 테스트
+    test_signup()
+    test_password_reset()
+    test_login()
+
+    # Prompt Engineering으로 문제 생성 및 평가
+    test_prompt_engineering()
+
+    # 대시보드 접근, 프로필 업데이트, 문제 리스트 확인 (프롬프트로 생성된 문제 검증)
+    test_dashboard_access_and_profile()
+
+    # 문제 필터링 확인
+    test_problem_filtering()
+
+    # Code Editor & Live Preview
+    test_code_editor_live_preview()
+
+    # AI Chatbot
+    test_ai_chatbot()
+
+    # Grading Panel
+    test_grading_panel()
+
+    # 대시보드 업데이트(다른 난이도 문제 생성 후 갱신 확인)
+    test_dashboard_update()
+
+    # 문제 풀이, 공유, 댓글, 피드백
+    test_problem_solving_and_sharing()
+
+    # Admin 기능 테스트
+    test_admin_functions()
+
+    teardown_environment()

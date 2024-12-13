@@ -1,0 +1,94 @@
+# Security
+# 공용  setup/teardown 함수
+function setup_security_test_environment():
+    set_test_host("https://webshooter.app")
+    prepare_test_accounts()  # testuser, admin 계정 준비
+
+function teardown_security_test_environment():
+    close_all_connections()
+
+#-------------------------------------------------
+# HTTPS 프로토콜 검증
+# SSL/TLS 상세 검증 수행
+#-------------------------------------------------
+function test_https_protocol():
+    # Tools: Browser DevTools, OpenSSL
+    open_chrome_devtools()
+    verify_https_enabled("https://webshooter.app")
+
+    openssl_result = run_openssl("openssl s_client -connect webshooter.app:443")
+    verify_certificate_validity(openssl_result)
+    verify_tls_protocol_version(openssl_result, "TLS1.2 or higher")
+
+    # Verification: 모든 전송 HTTPS, 인증서 유효 & 최신 프로토콜 사용
+
+#-------------------------------------------------
+# 비밀번호 정책 검증
+# 비정상 패턴 확인
+#-------------------------------------------------
+function test_password_policy():
+    # Tools: Selenium
+    open_browser("Chrome")
+    navigate_to_url("https://webshooter.app/signup")
+
+    # 짧은 비밀번호 테스트 (비정상)
+    input_text("#signup_email_field", "testweak@example.com")
+    input_text("#signup_password_field", "short")
+    click_element("#signup_submit_button")
+    verify_element_text_contains("#error_message", "비밀번호는 8자 이상")
+
+    # 특수문자 없는 단순 비밀번호 테스트
+    input_text("#signup_email_field", "testweak2@example.com")
+    input_text("#signup_password_field", "NoSpecialChar123")
+    click_element("#signup_submit_button")
+    verify_element_text_contains("#error_message", "특수문자 포함 필요")
+
+    close_browser()
+    # Verification: 정책 불만족 시 명확한 오류 안내
+
+#-------------------------------------------------
+# 세션 만료 및 차단
+# 장시간 미활동 후 세션 만료 및 비정상 세션 재활용 확인
+#-------------------------------------------------
+function test_session_expiration():
+    # Tools: Selenium, DevTools
+    open_browser("Chrome")
+    login("testuser@example.com", "ValidPass123!")
+    simulate_inactivity(30min)
+    refresh_page()
+    verify_current_url_contains("/login") # 자동 로그아웃 확인
+
+    # 세션 토큰 변조 후 요청
+    devtools_set_cookie("session_id", "tampered_session_token")
+    navigate_to_url("https://webshooter.app/dashboard")
+    verify_element_text_contains("#error_message", "세션 유효하지 않음")
+
+    close_browser()
+    # Verification: 세션 만료, 변조 시 접속 차단
+
+#-------------------------------------------------
+# 관리자 페이지 보안
+# 비정상 접근, 로그 감시
+#-------------------------------------------------
+function test_admin_page_security():
+    # Tools: OWASP ZAP, Splunk
+    zap_result = run_owasp_zap_scan("https://webshooter.app/admin")
+    verify_no_critical_vulnerabilities(zap_result)
+
+    # Splunk 로그 모니터링: 비정상 접근 감지
+    verify_alert_generated_for("abnormal_admin_access")
+
+    # Verification: 관리자 페이지 비정상 접근 시도 감지 및 알림
+
+#-------------------------------------------------
+# Main Security test function
+#-------------------------------------------------
+function run_security_tests():
+    setup_security_test_environment()
+
+    test_https_protocol()
+    test_password_policy()
+    test_session_expiration()
+    test_admin_page_security()
+
+    teardown_security_test_environment()
