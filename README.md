@@ -4,10 +4,10 @@
 웹 프로그래밍 교육 플랫폼 서비스
 
 # Docs
-## Proposal
-## Software Requirement Specification
-## Design Specification
-## Final
+### [Proposal](Docs/Proposal_Team1.pdf)
+### [Software Requirement Specification](Docs/Software_Requirement_Specification_Team1.pdf)
+### [Design Specification](Docs/Design_Specification_Team1.pdf)
+### [Final](Docs/Final_Presentation_Team1.pdf)
  
 # UI/UX
 ## Home
