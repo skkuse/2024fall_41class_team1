@@ -8,13 +8,7 @@
 ### [Software Requirement Specification](Docs/Software_Requirement_Specification_Team1.pdf)
 ### [Design Specification](Docs/Design_Specification_Team1.pdf)
 ### [Final](Docs/Final_Presentation_Team1.pdf)
- 
-# UI/UX
-## Home
-## Problem
-## Dashboard
-## Code Editor
-## Admin
+### Wireframe
 
 # Team Members
 권서진 김문수 김현진 박경일 이유진
