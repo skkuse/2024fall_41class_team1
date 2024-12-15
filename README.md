@@ -1,7 +1,8 @@
 # 2024fall_41class_team1
 
 # Web Shooter
-![webshooter_logo](https://github.com/user-attachments/assets/681b9e0e-9731-4e16-bfec-8a8ba5202fc6)  
+<img src="https://github.com/user-attachments/assets/404017e1-c4a8-4740-870c-999d41183627" alt="webshooter_logo" width="400" height="400"/>
+
 웹 프로그래밍 교육 플랫폼 서비스
 
 # Docs
